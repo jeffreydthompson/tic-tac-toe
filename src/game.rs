@@ -1,15 +1,10 @@
-use std::collections::HashMap;
-use std::io::empty;
 use std::fmt;
-use std::ops::Add;
 use std::usize;
 
 use crate::board::Board;
 use crate::board::Square;
 use crate::board::XPos;
 use crate::board::YPos;
-
-// type Result<T> = std::result::Result<T, PlacementError>;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlayerType { 
@@ -84,9 +79,10 @@ impl std::fmt::Display for PlacementError {
     }
 }
 
+#[allow(dead_code)]
 pub fn pretty_print(game: &Game) { 
     match game { 
-        Game::Uninitiated => { println!("uniniated"); },
+        Game::Uninitiated => { println!("unitiated"); },
         Game::Tie(board) => { board.pretty_print(); },
         Game::Win(_, board) => { board.pretty_print(); },
         Game::InPlay { board, .. } => { board.pretty_print(); }
@@ -148,10 +144,6 @@ impl Board {
     }
 }
 
-fn new_game(set: &PlayerSet) -> Game { 
-    Game::InPlay { set: *set, turn: set.x, board: Board::default() }
-}
-
 fn is_tie(board: &Board) -> bool { 
     let empty = board.get_empty_squares();
     if empty.len() != 0 { return false; }
@@ -203,31 +195,22 @@ pub fn computer_move(
             return Result::Ok(game);
         }
 
-        // println!("comp_move: starting board: {:?}", board.squares);
-        // println!("comp_move: search for positions: {:?}", open_pos);
-
         for pos in open_pos { 
             let mut copy_board = board.clone();
             copy_board.squares[pos.0][pos.1] = turn.associated_square();
-            // println!("comp_move: begin recursion for {} at pos: {:?}. board: {:?}", turn.to_string(), pos, copy_board.squares);
             let score = minimax(turn, turn, set, &copy_board, &0);
             if score == 1 {
-                // println!("comp_move: {:?} is win for {}", pos, turn.to_string()); 
                 chosen_pos = Option::Some(pos); 
                 break;
             } else if score > high_score {
-                // println!("comp_move: NEW high_score {} at {:?} for {}", score, pos, turn.to_string());
                 high_score = score;
                 chosen_pos = Option::Some(pos); 
-            } else { 
-                // println!("comp_move: NOT high_score {} at {:?} for {}", score, pos, turn.to_string());
             }
         }
 
         match chosen_pos {
             None => { Result::Err(MoveError) },
             Some(pos) => {
-                // println!("comp_move: chose pos: {:?}", pos);
                 let mut copy_board = board.clone();
                 copy_board.squares[pos.0][pos.1] = turn.associated_square();
 
@@ -251,28 +234,20 @@ fn minimax(
     board: &Board,
     depth: &usize) -> i32 { 
 
-        let space = spacer(depth);
-
         if is_tie(board) { 
-            // println!("{space}minmax_ recursion_end board: {:?} is tie. 0", board);
             return 0; 
         }
         if is_win(turn, board) { 
             let score: i32 = if turn == maximizing_player { 1 } else { -1 };
-            // println!("{space}minmax_ recursion_end board: {:?} is win for {}. {}", board, turn.to_string(), score);
             return score; 
         }
 
-        let minimizing_player = set.opposite_player(maximizing_player);
         let remaining_positions = board.get_empty_squares();
         let next_turn = set.opposite_player(turn);
-
-        // println!("{space}minmax_ remaining_positions: {:?}.  turn: {}", remaining_positions, next_turn.to_string());
 
         let mut scores: Vec<i32> = Vec::new();
 
         for pos in remaining_positions {
-            // println!("{space}minmax_ {} move to {:?}", next_turn.to_string(), pos);
             let mut copy_board = board.clone();
             copy_board.squares[pos.0][pos.1] = next_turn.associated_square();
             let next_depth = *depth + 1;
@@ -282,12 +257,10 @@ fn minimax(
 
             if &next_turn == maximizing_player { 
                 if result == 1 {
-                    // println!("{space}minmax_ Found winning path for {} at {:?}. returning: {}", next_turn.to_string(), pos, result);
                     return 1; 
                 }
             } else { 
                 if result == -1 { 
-                    // println!("{space}minmax_ Found winning path for {} at {:?}. returning: {}", next_turn.to_string(), pos, result);
                     return -1; 
                 }
             }
@@ -296,24 +269,18 @@ fn minimax(
         if &next_turn == maximizing_player { 
             scores.sort();
             let result = scores.last().unwrap_or(&0);
-            // println!("{space}SCORES: {:?}. turn: {}. return: {}", scores, next_turn.to_string(), result);
             return *result;
         } else { 
             scores.sort();
             let result = scores.first().unwrap_or(&0);
-            // println!("{space}SCORES: {:?}. turn: {}. return: {}", scores, next_turn.to_string(), result);
             return *result;
         }
-
-        return 0;
-}
-
-fn spacer(depth: &usize) -> String { 
-    std::iter::repeat("  ").take(*depth).collect::<String>()
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::{board::{Board, XPos, YPos}, game::{Player, PlayerType}};
 
     use super::{is_win, make_move, PlayerSet, Game, is_tie, minimax, computer_move};
@@ -335,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_make_move() {
-        let almost_win_board = &Board::build_from_string(x_almost_win_build_string());
+        let almost_win_board = &Board::from_str(x_almost_win_build_string()).unwrap();
         let winning_move = &(XPos::C, YPos::_2);
         let win_game_result = make_move(
             winning_move, 
@@ -344,13 +311,13 @@ mod tests {
             player_set()
         );
 
-        let assert_board = Board::build_from_string(x_win_build_string());
+        let assert_board = Board::from_str(x_win_build_string()).unwrap();
         let assert_game = Game::Win(*player_x(), assert_board);
 
         assert!(win_game_result.is_ok());
         assert_eq!(win_game_result.unwrap(), assert_game);
 
-        let almost_tie_board = Board::build_from_string(almost_tie_build_string());
+        let almost_tie_board = Board::from_str(almost_tie_build_string()).unwrap();
         let tie_move = &(XPos::A, YPos::_1);
         let tie_game_result = make_move(
             tie_move, 
@@ -359,13 +326,13 @@ mod tests {
             player_set()
         ); 
 
-        let assert_board = Board::build_from_string(tie_build_string());
+        let assert_board = Board::from_str(tie_build_string()).unwrap();
         let assert_game = Game::Tie(assert_board);
 
         assert!(tie_game_result.is_ok());
         assert_eq!(tie_game_result.unwrap(), assert_game);
 
-        let empty_board = Board::build_from_string(empty_build_string());
+        let empty_board = Board::from_str(empty_build_string()).unwrap();
         let x_move = &(XPos::A, YPos::_1);
         let move_result = make_move(
             x_move, 
@@ -374,7 +341,7 @@ mod tests {
             player_set()
         );
 
-        let assert_board = Board::build_from_string(one_move_build_string());
+        let assert_board = Board::from_str(one_move_build_string()).unwrap();
         let assert_game = Game::InPlay { set: *player_set(), turn: *player_o(), board: assert_board };
 
         assert!(move_result.is_ok());
@@ -384,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_get_x_positions() {
-        let test_board = Board::build_from_string(x_win_build_string());
+        let test_board = Board::from_str(x_win_build_string()).unwrap();
         let x_pos = test_board.get_positions_for(player_x());
         assert!(!x_pos.is_empty());
 
@@ -396,11 +363,10 @@ mod tests {
     }
 
     #[test]
-    fn test_get_empty() { 
-        let test_board = Board::build_from_string(x_win_build_string());
+    fn test_get_empty() {
+        let test_board = Board::from_str(x_win_build_string()).unwrap();
         let empty_pos = test_board.get_empty_squares();
         assert!(!empty_pos.is_empty());
-
         assert!(empty_pos.contains(&(XPos::A, YPos::_2)));
         assert!(empty_pos.contains(&(XPos::B, YPos::_3)));
 
@@ -409,15 +375,15 @@ mod tests {
 
     #[test]
     fn test_win() { 
-        let board = Board::build_from_string(empty_build_string());
+        let board = Board::from_str(empty_build_string()).unwrap();
         let empty_win = is_win(player_o(), &board);
         assert!(!empty_win);
 
-        let board = Board::build_from_string(tie_build_string());
+        let board = Board::from_str(tie_build_string()).unwrap();
         let tie_win = is_win(player_o(), &board);
         assert!(!tie_win);
 
-        let board = Board::build_from_string(l_diag_win_string());
+        let board = Board::from_str(l_diag_win_string()).unwrap();
         let o_d_win = is_win(player_o(), &board);
         assert!(o_d_win);
         let x_d_win = is_win(player_x(), &board);
@@ -426,15 +392,15 @@ mod tests {
 
     #[test]
     fn test_is_tie() { 
-        let board = Board::build_from_string(tie_build_string());
+        let board = Board::from_str(tie_build_string()).unwrap();
         let tie = is_tie(&board);
         assert!(tie);
 
-        let board = Board::build_from_string(x_win_build_string());
+        let board = Board::from_str(x_win_build_string()).unwrap();
         let tie = is_tie(&board);
         assert!(!tie);
 
-        let board = Board::build_from_string(empty_build_string());
+        let board = Board::from_str(empty_build_string()).unwrap();
         let tie = is_tie(&board);
         assert!(!tie);
     }
@@ -444,11 +410,10 @@ mod tests {
         let set = &PlayerSet { 
             x: Player::X(PlayerType::Computer), 
             o: Player::O(PlayerType::Computer) };
-        let board = Board::build_from_string(x_minmax_setup_str());
+        let board = Board::from_str(x_minmax_setup_str()).unwrap();
 
         // FROM HERE
         let mut winning_pos: Option<(usize, usize)> = Option::None;
-        let mut high_score = 0;
         let open_pos = board.get_empty_squares();
 
         for pos in open_pos { 
@@ -473,13 +438,13 @@ mod tests {
         let set = &PlayerSet { 
             x: Player::X(PlayerType::Computer), 
             o: Player::O(PlayerType::Computer) };
-        let board = Board::build_from_string(o_defend_setup_str());
+        let board = Board::from_str(o_defend_setup_str()).unwrap();
 
         let result = computer_move(&set.o, set, &board);
         assert!(result.is_ok());
         let res_game = result.unwrap();
 
-        let exp_board = Board::build_from_string(o_defend_exp_str());
+        let exp_board = Board::from_str(o_defend_exp_str()).unwrap();
         let exp_game = Game::InPlay { set: *set, turn: set.x, board: exp_board };
 
         assert_eq!(res_game, exp_game);
@@ -490,12 +455,12 @@ mod tests {
         let set = &PlayerSet { 
             x: Player::X(PlayerType::Computer), 
             o: Player::O(PlayerType::Computer) };
-        let board = Board::build_from_string(x_win_setup_str());
+        let board = Board::from_str(x_win_setup_str()).unwrap();
         let result = computer_move(&set.x, set, &board);
         assert!(result.is_ok());
         let res_game = result.unwrap();
 
-        let exp_board = Board::build_from_string(x_win_exp_str());
+        let exp_board = Board::from_str(x_win_exp_str()).unwrap();
         let exp_game = Game::Win(set.x, exp_board);
 
         assert_eq!(res_game, exp_game)
@@ -527,32 +492,13 @@ mod tests {
         "X-O\nOO-\nXXX"
     }
 
-    fn row_win_string() -> &'static str { 
-        // A:123\B:123\C:123
-        "X-O\nOO-\nXXX"
-    }
-
-    fn col_win_string() -> &'static str { 
-        // A:123\B:123\C:123
-        "O-O\nOXX\nOXX"
-    }
-
     fn l_diag_win_string() -> &'static str { 
         // A:123\B:123\C:123
         "O-O\nXOX\nXXO"
     }
 
-    fn r_diag_win_string() -> &'static str { 
-        // A:123\B:123\C:123
-        "O-X\nOX-\nXOX"
-    }
-
     fn x_minmax_setup_str() -> &'static str { 
         "O-X\nO--\nXO-"
-    }
-
-    fn x_minmax_result_str() -> &'static str { 
-        "O-X\nOX-\nXO-"
     }
 
     fn o_defend_setup_str() -> &'static str { 
@@ -572,7 +518,3 @@ mod tests {
     }
 
 }
-
-// "do paced laps", toots pal decapod
-
-//cargo test --package 'tic-tac-toe' --bin 'tic-tac-toe' -- 'game::tests::test_computer_move' --exact  --nocapture

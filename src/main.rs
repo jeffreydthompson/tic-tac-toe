@@ -1,4 +1,3 @@
-use core::num;
 use std::{io, num::ParseIntError};
 
 use crate::game::{Game, PlayerSet, Player, PlayerType};
@@ -8,7 +7,11 @@ mod board;
 mod game;
 
 fn main() {
+    play_game();
+    println!("Thanks for playing!");
+}
 
+fn play_game() { 
     let mut game = init_game();
     
     let mut is_playing = true;
@@ -31,7 +34,7 @@ fn main() {
                         let computer_move = game::computer_move(&turn, &set, &board);
                         match computer_move { 
                             Ok(updated_game) => { game = updated_game; },
-                            Err(error) => { panic!("THIS shouldn't happpen!!"); }
+                            Err(error) => { panic!("THIS shouldn't happpen!! {:?}", error); }
                         }
                     }
                 }
@@ -42,13 +45,14 @@ fn main() {
 
         is_playing = false;
     }
-
-    println!("Thanks for playing!");
 }
 
 fn player_input(set: PlayerSet, turn: Player, board: Board) -> Game { 
 
-    while true { 
+    let mut output_game = Game::Uninitiated;
+    let mut is_awaiting_input = true;
+
+    while is_awaiting_input { 
         
         board.pretty_print();
         println!("{}, please enter move A1 thru C3:", turn.to_string());
@@ -59,11 +63,11 @@ fn player_input(set: PlayerSet, turn: Player, board: Board) -> Game {
         .read_line(&mut in_buffer)
         .expect("failed to read");
 
-        in_buffer.to_ascii_uppercase();
+        in_buffer = in_buffer.to_ascii_uppercase();
         let letter = &in_buffer[..1];
         let number = &in_buffer[1..];
-        let mut x_pos: usize = 0;
-        let mut y_pos: usize = 0;
+        let x_pos: usize;
+        let y_pos: usize;
 
         match letter { 
             "A" => { x_pos = XPos::A; },
@@ -91,21 +95,25 @@ fn player_input(set: PlayerSet, turn: Player, board: Board) -> Game {
         let move_result = game::make_move(pos, &copy_board, &turn, &set);
 
         match move_result { 
-            Ok(game) => {
-                return game; 
+            Ok(result_game) => {
+                output_game = result_game;
+                is_awaiting_input = false; 
             },
             Err(error) => { 
-                println!("Can't move there. Please choose another move.");
+                println!("Can't move there. Please choose another move. {:?}", error);
                 continue;
             }
         }
     }
 
-    Game::Uninitiated
+    output_game
 }
 
-fn init_game() -> Game { 
-    while true {
+fn init_game() -> Game {
+    let mut game = Game::Uninitiated;
+    let mut is_init = true;
+
+    while is_init {
         println!("Tic Tac Toe.  Enter an option: (X goes first)");
         println!("1. X: Human, O: Computer");
         println!("2: X: Human, O: Human");
@@ -145,8 +153,10 @@ fn init_game() -> Game {
         let o = Player::O(o_type);
         let player_set = PlayerSet { x: x, o: o };
         let board = Board::default();
-        return Game::InPlay { set: player_set, turn: player_set.x, board: board }
+
+        game = Game::InPlay { set: player_set, turn: player_set.x, board: board };
+        is_init = false;
     }
 
-    Game::Uninitiated
+    game
 }

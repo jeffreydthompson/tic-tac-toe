@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 #[non_exhaustive]
 pub struct XPos;
 impl XPos {
@@ -66,33 +64,48 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::board::{Square, Board, XPos, YPos};
 
-    impl Square { 
-        pub fn from_string(string: &str) -> Self { 
-            match string { 
-                "X" => { Square::X },
-                "O" => { Square::O },
-                _ => { Square::Empty },
+    #[derive(Debug)]
+    pub struct BoardBuildError;
+    #[derive(Debug)]
+    pub struct SquareBuildError;
+
+    impl FromStr for Square { 
+        type Err = SquareBuildError;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            match s { 
+                "X" => { Ok(Self::X) },
+                "O" => { Ok(Self::O) },
+                "-" => { Ok(Self::Empty) },
+                _ => { Err(SquareBuildError) }
             }
         }
     }
 
-    impl Board {
+    impl FromStr for Board { 
+        type Err = BoardBuildError;
 
-        pub fn build_from_string(input_str: &str) -> Self {
-            let build_string = input_str.split("\n");
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            if s.split("\n").count() != 3 { return Err(BoardBuildError); }
 
+            let build_string = s.split("\n");
             let mut board = Board { squares: [[Square::Empty; 3]; 3] };
 
-            for (y, str) in build_string.into_iter().enumerate() { 
-                for (x, ch) in str.chars().enumerate() { 
-                    let cast_str = ch.to_string();
-                    board.squares[y][x] = Square::from_string(&cast_str);
+            for (y, s) in build_string.into_iter().enumerate() {
+                if s.len() != 3 { return Result::Err(BoardBuildError); }
+                for (x, c) in s.chars().enumerate() {
+                    let string = c.to_string(); 
+                    let str = string.as_str();
+                    let Ok(sq) = Square::from_str(str) else { return Err(BoardBuildError); };
+                    board.squares[y][x] = sq;
                 }
             }
 
-            board
+            Ok(board)
         }
     }
 
@@ -127,51 +140,31 @@ mod tests {
             assert_eq!(len, &3);
         }
 
-        for(a, b) in build_string.into_iter().enumerate() { 
-            // println!("index: {a}, str: {b}");
+        for(_a, b) in build_string.into_iter().enumerate() { 
             let v: Vec<char> = b.chars().collect();
 
             for vval in v { 
-                let square = Square::from_string("{vval}");
+                let derive_str = vval.to_string();
+                let str = derive_str.as_str();
+                let square = Square::from_str(str).unwrap();
                 assert_eq!(square.to_string(), "⬜️");
             }
         }
         
-        let board = Board::build_from_string(empty_build_string());
-        assert_eq!(board.squares.len(), 3);
+        let board = Board::from_str(empty_build_string());
+        assert!(board.is_ok());
+        assert_eq!(board.unwrap().squares.len(), 3);
 
-        let x_win_board = Board::build_from_string(x_win_build_string());
+        let x_win_board = Board::from_str(x_win_build_string()).unwrap();
         assert_eq!(x_win_board.squares[XPos::A][YPos::_1].to_string(), "❌");
         assert_eq!(x_win_board.squares[XPos::C][YPos::_3].to_string(), "❌");
-    }
 
-    // #[test]
-    fn test_odd_char_casting() { 
-        let odd_char_str = "❌⬜️⬜️\n⬜️⬜️⬜️\n⬜️⬜️⭕️".split("\n");
-        for (a, b) in odd_char_str.into_iter().enumerate() { 
-            let v_char: Vec<char> = b.chars().collect();
-            let len = v_char.len();
-            println!("v_char len: {}", len);
+        let board = Board::from_str(empty_build_string());
+        assert!(board.is_ok());
+        assert_eq!(board.unwrap().squares.len(), 3);
 
-            for f_ch in v_char {
-                println!("ch to cast: {}", f_ch);
-                let cast_ch = f_ch.to_string();
-                match char::from_u32(65039) { 
-                    Some(ch) => { 
-                        if ch == f_ch { continue; }
-                     }
-                    None => { break; }
-                }
-                // if cast_ch != "❌" && cast_ch != "⭕️" && cast_ch != "⬜️" { continue; }
-                println!("cast ch: {}", cast_ch);
-
-                let mut byte_ary: [u16; 4] = [0; 4];
-                let ary = f_ch.encode_utf16(&mut byte_ary);
-                for byte in ary { 
-                    println!("byte: {}", byte);
-                }
-            }
-        }
+        let board_from_str = Board::from_str(x_win_build_string());
+        assert!(board_from_str.is_ok());
     }
 
     fn empty_build_string() -> &'static str { 
